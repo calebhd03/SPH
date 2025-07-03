@@ -2,7 +2,6 @@
 
 // Constants
 static const float DAMPING = 0.98; // Velocity damping for stability
-static const float TIME_STEP = 0.01; // Default, can be set from C#
 
 // Buffers
 RWStructuredBuffer<float3> positions;

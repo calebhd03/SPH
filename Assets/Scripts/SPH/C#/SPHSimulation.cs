@@ -7,7 +7,14 @@ public class SPHSimulation : MonoBehaviour
 {
     [Header("Simulation Parameters")]
     public int maxParticles = 10000;
+    public float particleMass = 0.02f; // Mass of each particle
+    public float smoothingLength = 0.1f; // Smoothing length for the SPH kernel
+    public float restDensity = 1000f; // Rest density of the fluid
+    public float gasConstant = 2000f; // Gas constant for the equation of state
+    public float viscosityCoefficient = 0.01f; // Viscosity coefficient for the fluid
+    public float timeStep = 0.01f; // Time step for simulation updates
     public Vector3 boundarySize = new Vector3(10, 10, 10);
+    public float smoothingRadius = 0.5f; 
 
     [Header("Compute Shaders")]
     [SerializeField] private ComputeShader spatialHashShader;
@@ -95,6 +102,12 @@ public class SPHSimulation : MonoBehaviour
             int threadsPerGroup = 64;
             int groupCount = Mathf.CeilToInt((float)_activeParticleCount / threadsPerGroup);
 
+            Vector3Int gridDims = new Vector3Int(
+                        Mathf.CeilToInt(boundarySize.x / smoothingRadius),
+                        Mathf.CeilToInt(boundarySize.y / smoothingRadius),
+                        Mathf.CeilToInt(boundarySize.z / smoothingRadius)
+                    );
+
             // --- Spatial hash phase ---
             if (spatialHashShader != null)
             {
@@ -104,13 +117,8 @@ public class SPHSimulation : MonoBehaviour
                     spatialHashShader.SetInt("numParticles", _activeParticleCount);
                     spatialHashShader.SetVector("boundsMin", Vector3.zero);
                     spatialHashShader.SetVector("boundsMax", boundarySize);
-                    float cellSize = 0.5f; // Should match your simulation
-                    spatialHashShader.SetFloat("cellSize", cellSize);
-                    Vector3Int gridDims = new Vector3Int(
-                        Mathf.CeilToInt(boundarySize.x / cellSize),
-                        Mathf.CeilToInt(boundarySize.y / cellSize),
-                        Mathf.CeilToInt(boundarySize.z / cellSize)
-                    );
+                    spatialHashShader.SetFloat("cellSize", smoothingRadius);
+
                     spatialHashShader.SetInts("gridDims", gridDims.x, gridDims.y, gridDims.z);
                     _bufferManager.BindBuffersToShader(spatialHashShader, assignKernel, "spatialhash");
                     spatialHashShader.Dispatch(assignKernel, Mathf.CeilToInt(_activeParticleCount / 64f), 1, 1);
@@ -128,28 +136,22 @@ public class SPHSimulation : MonoBehaviour
             if (densityPressureShader != null)
             {
                 int kernelIndex = densityPressureShader.FindKernel("CalculateDensityPressure");
-                
+
                 // Set parameters
-                float smoothingRadius = 0.5f;
                 densityPressureShader.SetFloat("smoothingRadius", smoothingRadius);
                 densityPressureShader.SetFloat("smoothingRadius2", smoothingRadius * smoothingRadius);
                 densityPressureShader.SetFloat("smoothingRadius6", Mathf.Pow(smoothingRadius, 6));
                 densityPressureShader.SetFloat("smoothingRadius9", Mathf.Pow(smoothingRadius, 9));
-                
+
                 // Calculate Poly6 kernel coefficient
                 float poly6Coeff = 315.0f / (64.0f * Mathf.PI * Mathf.Pow(smoothingRadius, 9));
                 densityPressureShader.SetFloat("poly6Coefficient", poly6Coeff);
-                
+
                 // Set grid parameters
                 densityPressureShader.SetInt("numParticles", _activeParticleCount);
-                Vector3Int gridDims = new Vector3Int(
-                    Mathf.CeilToInt(boundarySize.x / smoothingRadius),
-                    Mathf.CeilToInt(boundarySize.y / smoothingRadius),
-                    Mathf.CeilToInt(boundarySize.z / smoothingRadius)
-                );
                 densityPressureShader.SetInts("gridDimensions", gridDims.x, gridDims.y, gridDims.z);
                 densityPressureShader.SetFloat("cellSize", smoothingRadius);
-                
+
                 _bufferManager.BindBuffersToShader(densityPressureShader, kernelIndex, "densitypressure");
                 densityPressureShader.Dispatch(kernelIndex, groupCount, 1, 1);
             }
@@ -158,21 +160,16 @@ public class SPHSimulation : MonoBehaviour
             if (forceShader != null)
             {
                 int kernelIndex = forceShader.FindKernel("CalculateForces");
-                float smoothingRadius = 0.5f;
+
                 forceShader.SetFloat("smoothingRadius", smoothingRadius);
                 forceShader.SetFloat("smoothingRadius2", smoothingRadius * smoothingRadius);
-                // Spiky kernel gradient coefficient:  -45/(PI * h^6)
-                float spikyGradCoeff = -45.0f / (Mathf.PI * Mathf.Pow(smoothingRadius, 6));
+                
+                float spikyGradCoeff = -45.0f / (Mathf.PI * Mathf.Pow(smoothingRadius, 6)); // Spiky kernel gradient coefficient:  -45/(PI * h^6)
                 forceShader.SetFloat("spikyGradCoefficient", spikyGradCoeff);
                 // Viscosity kernel laplacian coefficient: 45/(PI * h^6)
                 float viscosityLaplacianCoeff = 45.0f / (Mathf.PI * Mathf.Pow(smoothingRadius, 6));
                 forceShader.SetFloat("viscosityLaplacianCoefficient", viscosityLaplacianCoeff);
                 forceShader.SetInt("numParticles", _activeParticleCount);
-                Vector3Int gridDims = new Vector3Int(
-                    Mathf.CeilToInt(boundarySize.x / smoothingRadius),
-                    Mathf.CeilToInt(boundarySize.y / smoothingRadius),
-                    Mathf.CeilToInt(boundarySize.z / smoothingRadius)
-                );
                 forceShader.SetInts("gridDimensions", gridDims.x, gridDims.y, gridDims.z);
                 forceShader.SetFloat("cellSize", smoothingRadius);
                 _bufferManager.BindBuffersToShader(forceShader, kernelIndex, "forces");
@@ -183,7 +180,6 @@ public class SPHSimulation : MonoBehaviour
             if (integrationShader != null)
             {
                 int kernelIndex = integrationShader.FindKernel("Integrate");
-                float timeStep = 0.01f; // You can expose this as a parameter
                 integrationShader.SetFloat("timeStep", timeStep);
                 integrationShader.SetInt("numParticles", _activeParticleCount);
                 Vector3 boundsMin = Vector3.zero;
@@ -224,5 +220,11 @@ public class SPHSimulation : MonoBehaviour
         {
             // Optionally pause simulation when app loses focus
         }
+    }
+
+    void OnDrawGizmos()
+    {
+        Gizmos.color = Color.green;
+        Gizmos.DrawWireCube(Vector3.zero, boundarySize);
     }
 }

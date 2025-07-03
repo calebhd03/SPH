@@ -273,7 +273,7 @@ public class SPHBufferManager : IDisposable
                 positionData[i * 3 + 2]
             );
         }
-
+        
         return positions;
     }
 
