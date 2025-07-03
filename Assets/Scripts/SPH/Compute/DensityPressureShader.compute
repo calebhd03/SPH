@@ -2,19 +2,8 @@
 
 // Constants for SPH
 static const float PI = 3.14159265359;
-static const float MASS = 0.02;
-static const float REST_DENSITY = 1000.0;
-static const float GAS_CONSTANT = 2000.0;
 static const float EPSILON = 0.0001;
 
-// Particle data structure (matches CPU side)
-struct Particle {
-    float3 position;
-    float3 velocity;
-    float density;
-    float pressure;
-    uint id;
-};
 
 // Buffers
 RWStructuredBuffer<float3> positions;
@@ -30,6 +19,9 @@ float smoothingRadius2;
 float smoothingRadius6;
 float smoothingRadius9;
 float poly6Coefficient;
+float particleMass = 0.02;
+float restDensity = 1000.0;
+float gasConstant = 2000.0;
 
 // Simulation parameters
 uint numParticles;
@@ -97,7 +89,7 @@ void CalculateDensityPressure(uint3 id : SV_DispatchThreadID)
                     
                     if (r2 < smoothingRadius2)
                     {
-                        density += MASS * CalculatePoly6Kernel(r2);
+                        density += particleMass * CalculatePoly6Kernel(r2);
                     }
                 }
             }
@@ -105,17 +97,17 @@ void CalculateDensityPressure(uint3 id : SV_DispatchThreadID)
     }
     
     // Add self density
-    density += MASS * CalculatePoly6Kernel(0);
+    density += particleMass * CalculatePoly6Kernel(0);
     
     // Ensure minimum density for numerical stability
-    density = max(density, REST_DENSITY * 0.1);
+    density = max(density, restDensity * 0.1);
     
     // Store density
     densities[particleIndex] = density;
     
     // Calculate pressure using equation of state (ideal gas law)
-    float densityError = density - REST_DENSITY;
-    float pressure = GAS_CONSTANT * densityError;
+    float densityError = density - restDensity;
+    float pressure = gasConstant * densityError;
     
     // Ensure non-negative pressure
     pressure = max(0, pressure);
