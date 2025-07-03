@@ -1,0 +1,66 @@
+#pragma kernel Integrate
+
+// Constants
+static const float DAMPING = 0.98; // Velocity damping for stability
+static const float TIME_STEP = 0.01; // Default, can be set from C#
+
+// Buffers
+RWStructuredBuffer<float3> positions;
+RWStructuredBuffer<float3> velocities;
+RWStructuredBuffer<float3> forces;
+RWStructuredBuffer<float> densities;
+
+// Parameters
+uint numParticles;
+float timeStep;
+float3 boundsMin;
+float3 boundsMax;
+
+[numthreads(64,1,1)]
+void Integrate(uint3 id : SV_DispatchThreadID)
+{
+    uint i = id.x;
+    if (i >= numParticles) return;
+
+    float3 pos = positions[i];
+    float3 vel = velocities[i];
+    float3 force = forces[i];
+    float density = densities[i];
+
+    // Leap-frog integration: v(t+dt/2) = v(t-dt/2) + (F/density) * dt
+    float3 accel = (density > 0.0f) ? (force / density) : float3(0,0,0);
+    vel += accel * timeStep;
+    vel *= DAMPING;
+
+    // Update position: x(t+dt) = x(t) + v(t+dt/2) * dt
+    pos += vel * timeStep;
+
+    // Boundary collision detection and response
+    for (int axis = 0; axis < 3; axis++)
+    {
+        if (pos[axis] < boundsMin[axis])
+        {
+            pos[axis] = boundsMin[axis];
+            vel[axis] *= -0.5f; // Bounce with damping
+        }
+        else if (pos[axis] > boundsMax[axis])
+        {
+            pos[axis] = boundsMax[axis];
+            vel[axis] *= -0.5f;
+        }
+    }
+
+    // Safety checks for NaN/infinity
+    if (any(isnan(pos)) || any(isinf(pos)))
+    {
+        pos = float3(0, 2, 0);
+        vel = float3(0, 0, 0);
+    }
+    if (any(isnan(vel)) || any(isinf(vel)))
+    {
+        vel = float3(0, 0, 0);
+    }
+
+    positions[i] = pos;
+    velocities[i] = vel;
+}
