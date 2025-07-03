@@ -210,9 +210,9 @@ public class SPHBufferManager : IDisposable
                 case "forces":
                     shader.SetBuffer(kernelIndex, "positions", PositionBuffer);
                     shader.SetBuffer(kernelIndex, "velocities", VelocityBuffer);
-                    shader.SetBuffer(kernelIndex, "forces", ForceBuffer);
                     shader.SetBuffer(kernelIndex, "densities", DensityBuffer);
                     shader.SetBuffer(kernelIndex, "pressures", PressureBuffer);
+                    shader.SetBuffer(kernelIndex, "forces", ForceBuffer);
                     shader.SetBuffer(kernelIndex, "gridStartIndices", GridStartIndicesBuffer);
                     shader.SetBuffer(kernelIndex, "gridEndIndices", GridEndIndicesBuffer);
                     shader.SetBuffer(kernelIndex, "sortedParticleIndices", SortedParticleIndicesBuffer);
@@ -223,6 +223,7 @@ public class SPHBufferManager : IDisposable
                     shader.SetBuffer(kernelIndex, "velocities", VelocityBuffer);
                     shader.SetBuffer(kernelIndex, "forces", ForceBuffer);
                     shader.SetBuffer(kernelIndex, "densities", DensityBuffer);
+                    shader.SetBuffer(kernelIndex, "pressures", PressureBuffer);
                     break;
 
                 default:

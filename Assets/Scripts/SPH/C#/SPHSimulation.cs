@@ -104,8 +104,77 @@ public class SPHSimulation : MonoBehaviour
                 spatialHashShader.Dispatch(kernelIndex, groupCount, 1, 1);
             }
 
+            // Density and pressure phase
+            if (densityPressureShader != null)
+            {
+                int kernelIndex = densityPressureShader.FindKernel("CalculateDensityPressure");
+                
+                // Set parameters
+                float smoothingRadius = 0.5f;
+                densityPressureShader.SetFloat("smoothingRadius", smoothingRadius);
+                densityPressureShader.SetFloat("smoothingRadius2", smoothingRadius * smoothingRadius);
+                densityPressureShader.SetFloat("smoothingRadius6", Mathf.Pow(smoothingRadius, 6));
+                densityPressureShader.SetFloat("smoothingRadius9", Mathf.Pow(smoothingRadius, 9));
+                
+                // Calculate Poly6 kernel coefficient
+                float poly6Coeff = 315.0f / (64.0f * Mathf.PI * Mathf.Pow(smoothingRadius, 9));
+                densityPressureShader.SetFloat("poly6Coefficient", poly6Coeff);
+                
+                // Set grid parameters
+                densityPressureShader.SetInt("numParticles", _activeParticleCount);
+                Vector3Int gridDims = new Vector3Int(
+                    Mathf.CeilToInt(boundarySize.x / smoothingRadius),
+                    Mathf.CeilToInt(boundarySize.y / smoothingRadius),
+                    Mathf.CeilToInt(boundarySize.z / smoothingRadius)
+                );
+                densityPressureShader.SetInts("gridDimensions", gridDims.x, gridDims.y, gridDims.z);
+                densityPressureShader.SetFloat("cellSize", smoothingRadius);
+                
+                _bufferManager.BindBuffersToShader(densityPressureShader, kernelIndex, "densitypressure");
+                densityPressureShader.Dispatch(kernelIndex, groupCount, 1, 1);
+            }
+
+            // Force calculation phase
+            if (forceShader != null)
+            {
+                int kernelIndex = forceShader.FindKernel("CalculateForces");
+                float smoothingRadius = 0.5f;
+                forceShader.SetFloat("smoothingRadius", smoothingRadius);
+                forceShader.SetFloat("smoothingRadius2", smoothingRadius * smoothingRadius);
+                // Spiky kernel gradient coefficient:  -45/(PI * h^6)
+                float spikyGradCoeff = -45.0f / (Mathf.PI * Mathf.Pow(smoothingRadius, 6));
+                forceShader.SetFloat("spikyGradCoefficient", spikyGradCoeff);
+                // Viscosity kernel laplacian coefficient: 45/(PI * h^6)
+                float viscosityLaplacianCoeff = 45.0f / (Mathf.PI * Mathf.Pow(smoothingRadius, 6));
+                forceShader.SetFloat("viscosityLaplacianCoefficient", viscosityLaplacianCoeff);
+                forceShader.SetInt("numParticles", _activeParticleCount);
+                Vector3Int gridDims = new Vector3Int(
+                    Mathf.CeilToInt(boundarySize.x / smoothingRadius),
+                    Mathf.CeilToInt(boundarySize.y / smoothingRadius),
+                    Mathf.CeilToInt(boundarySize.z / smoothingRadius)
+                );
+                forceShader.SetInts("gridDimensions", gridDims.x, gridDims.y, gridDims.z);
+                forceShader.SetFloat("cellSize", smoothingRadius);
+                _bufferManager.BindBuffersToShader(forceShader, kernelIndex, "forces");
+                forceShader.Dispatch(kernelIndex, groupCount, 1, 1);
+            }
+
+            // Integration phase
+            if (integrationShader != null)
+            {
+                int kernelIndex = integrationShader.FindKernel("Integrate");
+                float timeStep = 0.01f; // You can expose this as a parameter
+                integrationShader.SetFloat("timeStep", timeStep);
+                integrationShader.SetInt("numParticles", _activeParticleCount);
+                Vector3 boundsMin = Vector3.zero;
+                Vector3 boundsMax = boundarySize;
+                integrationShader.SetFloats("boundsMin", boundsMin.x, boundsMin.y, boundsMin.z);
+                integrationShader.SetFloats("boundsMax", boundsMax.x, boundsMax.y, boundsMax.z);
+                _bufferManager.BindBuffersToShader(integrationShader, kernelIndex, "integration");
+                integrationShader.Dispatch(kernelIndex, groupCount, 1, 1);
+            }
+
             // Add other simulation phases here...
-            // This is just an example of how to use the buffer manager
         }
         catch (Exception e)
         {
