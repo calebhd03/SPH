@@ -98,25 +98,29 @@ public class SPHSimulation : MonoBehaviour
             // --- Spatial hash phase ---
             if (spatialHashShader != null)
             {
-                // Optional: Clear grid kernel (if you use it in your shader)
-                if (spatialHashShader.HasKernel("ClearGrid"))
+                if (spatialHashShader.HasKernel("AssignParticlesToGrid"))
                 {
-                    int clearKernel = spatialHashShader.FindKernel("ClearGrid");
-                    _bufferManager.BindBuffersToShader(spatialHashShader, clearKernel, "spatialhash");
-                    // The grid size is typically much larger than particle count
-                    int gridCells = Mathf.CeilToInt(_bufferManager.GridStartIndicesBuffer.count / (float)threadsPerGroup);
-                    spatialHashShader.Dispatch(clearKernel, gridCells, 1, 1);
+                    int assignKernel = spatialHashShader.FindKernel("AssignParticlesToGrid");
+                    spatialHashShader.SetInt("numParticles", _activeParticleCount);
+                    spatialHashShader.SetVector("boundsMin", Vector3.zero);
+                    spatialHashShader.SetVector("boundsMax", boundarySize);
+                    float cellSize = 0.5f; // Should match your simulation
+                    spatialHashShader.SetFloat("cellSize", cellSize);
+                    Vector3Int gridDims = new Vector3Int(
+                        Mathf.CeilToInt(boundarySize.x / cellSize),
+                        Mathf.CeilToInt(boundarySize.y / cellSize),
+                        Mathf.CeilToInt(boundarySize.z / cellSize)
+                    );
+                    spatialHashShader.SetInts("gridDims", gridDims.x, gridDims.y, gridDims.z);
+                    _bufferManager.BindBuffersToShader(spatialHashShader, assignKernel, "spatialhash");
+                    spatialHashShader.Dispatch(assignKernel, Mathf.CeilToInt(_activeParticleCount / 64f), 1, 1);
                 }
-                // Main spatial hash kernel
-                int kernelIndex = spatialHashShader.FindKernel("CSMain");
-                _bufferManager.BindBuffersToShader(spatialHashShader, kernelIndex, "spatialhash");
-                spatialHashShader.Dispatch(kernelIndex, groupCount, 1, 1);
-                // Optional: Sort particles kernel (if you use it in your shader)
-                if (spatialHashShader.HasKernel("SortParticles"))
+                if (spatialHashShader.HasKernel("DebugColorByGridCell"))
                 {
-                    int sortKernel = spatialHashShader.FindKernel("SortParticles");
-                    _bufferManager.BindBuffersToShader(spatialHashShader, sortKernel, "spatialhash");
-                    spatialHashShader.Dispatch(sortKernel, groupCount, 1, 1);
+                    int debugKernel = spatialHashShader.FindKernel("DebugColorByGridCell");
+                    spatialHashShader.SetInt("numParticles", _activeParticleCount);
+                    _bufferManager.BindBuffersToShader(spatialHashShader, debugKernel, "spatialhash");
+                    spatialHashShader.Dispatch(debugKernel, Mathf.CeilToInt(_activeParticleCount / 64f), 1, 1);
                 }
             }
 

@@ -167,7 +167,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maxParticles: 100
   boundarySize: {x: 10, y: 10, z: 10}
-  spatialHashShader: {fileID: 7200000, guid: 055f50c58ee7d2047b4e3b61980ed930, type: 3}
+  spatialHashShader: {fileID: 7200000, guid: 4bb90630dddc54a4da1a1bb1a0171e28, type: 3}
   densityPressureShader: {fileID: 7200000, guid: 7632c46705023894f91936e04f693ae1, type: 3}
   forceShader: {fileID: 7200000, guid: 5a18b4dc7bd73f34a931094f91d384aa, type: 3}
   integrationShader: {fileID: 7200000, guid: e86c368b80756554ea4b84ef9923812d, type: 3}

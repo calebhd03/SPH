@@ -1,0 +1,66 @@
+#pragma kernel AssignParticlesToGrid
+#pragma kernel DebugColorByGridCell
+
+// Constants
+static const uint HASH_TABLE_SIZE = 262144; // 2^18
+static const float3 GRID_OFFSET = float3(4096, 4096, 4096);
+
+// Buffers
+StructuredBuffer<float3> positions;
+RWStructuredBuffer<uint> particleGridIndices;
+RWStructuredBuffer<uint> gridCellCounts;
+RWStructuredBuffer<float4> debugColors;
+
+// Parameters
+uint numParticles;
+float3 boundsMin;
+float3 boundsMax;
+float cellSize;
+uint3 gridDims;
+
+// Hash function for 3D grid cell to 1D index
+uint Hash3D(int3 cell)
+{
+    uint h1 = (uint)(cell.x * 73856093);
+    uint h2 = (uint)(cell.y * 19349663);
+    uint h3 = (uint)(cell.z * 83492791);
+    return (h1 ^ h2 ^ h3) % HASH_TABLE_SIZE;
+}
+
+// Convert world position to grid cell
+int3 PositionToCell(float3 position)
+{
+    float3 rel = position - boundsMin;
+    int3 cell = int3(floor(rel / cellSize));
+    // Clamp to grid bounds
+    cell = clamp(cell, int3(0,0,0), int3(gridDims) - 1);
+    return cell;
+}
+
+// Assign each particle to a grid cell (spatial hash)
+[numthreads(64,1,1)]
+void AssignParticlesToGrid(uint3 id : SV_DispatchThreadID)
+{
+    uint i = id.x;
+    if (i >= numParticles) return;
+    float3 pos = positions[i];
+    int3 cell = PositionToCell(pos);
+    uint hash = Hash3D(cell);
+    particleGridIndices[i] = hash;
+    // Optionally increment cell count for debugging
+    InterlockedAdd(gridCellCounts[hash], 1);
+}
+
+// Debug: Color particles by grid cell hash
+[numthreads(64,1,1)]
+void DebugColorByGridCell(uint3 id : SV_DispatchThreadID)
+{
+    uint i = id.x;
+    if (i >= numParticles) return;
+    uint hash = particleGridIndices[i];
+    // Simple color mapping: hash to RGB
+    float r = ((hash * 97) % 255) / 255.0;
+    float g = ((hash * 57) % 255) / 255.0;
+    float b = ((hash * 17) % 255) / 255.0;
+    debugColors[i] = float4(r, g, b, 1.0);
+}
