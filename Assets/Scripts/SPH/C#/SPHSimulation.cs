@@ -6,8 +6,8 @@ using UnityEngine;
 public class SPHSimulation : MonoBehaviour
 {
     [Header("Simulation Parameters")]
-    [SerializeField] private int maxParticles = 10000;
-    [SerializeField] private Vector3 boundarySize = new Vector3(10, 10, 10);
+    public int maxParticles = 10000;
+    public Vector3 boundarySize = new Vector3(10, 10, 10);
 
     [Header("Compute Shaders")]
     [SerializeField] private ComputeShader spatialHashShader;
@@ -15,7 +15,7 @@ public class SPHSimulation : MonoBehaviour
     [SerializeField] private ComputeShader forceShader;
     [SerializeField] private ComputeShader integrationShader;
 
-    private SPHBufferManager _bufferManager;
+    public SPHBufferManager _bufferManager { get; private set; }
     private int _activeParticleCount;
 
     private void Start()
