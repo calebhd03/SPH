@@ -196,6 +196,14 @@ public class SPHBufferManager : IDisposable
                 case "spatialhash":
                     shader.SetBuffer(kernelIndex, "positions", PositionBuffer);
                     shader.SetBuffer(kernelIndex, "particleGridIndices", ParticleGridIndicesBuffer);
+                    // Optionally bind grid buffers if used in the shader
+                    if (GridStartIndicesBuffer != null)
+                        shader.SetBuffer(kernelIndex, "gridStartIndices", GridStartIndicesBuffer);
+                    if (GridEndIndicesBuffer != null)
+                        shader.SetBuffer(kernelIndex, "gridEndIndices", GridEndIndicesBuffer);
+                    if (SortedParticleIndicesBuffer != null)
+                        shader.SetBuffer(kernelIndex, "sortedParticleIndices", SortedParticleIndicesBuffer);
+                    // If you add a ComputeBuffer for cellOffsets, bind it here as well
                     break;
 
                 case "densitypressure":

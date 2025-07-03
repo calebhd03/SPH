@@ -40,7 +40,7 @@ public class SPHSimulation : MonoBehaviour
             _bufferManager.InitializeBuffers(maxParticles, maxGridCells);
 
             // Create initial particle positions (simple grid arrangement)
-            var initialPositions = GenerateInitialParticlePositions(1000); // Start with 1000 particles
+            var initialPositions = GenerateInitialParticlePositions(maxParticles);
             _bufferManager.InitializeParticleData(initialPositions);
             _activeParticleCount = initialPositions.Length;
 
@@ -92,16 +92,32 @@ public class SPHSimulation : MonoBehaviour
     {
         try
         {
-            // Example of how to use the buffer manager in your simulation loop
             int threadsPerGroup = 64;
             int groupCount = Mathf.CeilToInt((float)_activeParticleCount / threadsPerGroup);
 
-            // Spatial hash phase
+            // --- Spatial hash phase ---
             if (spatialHashShader != null)
             {
+                // Optional: Clear grid kernel (if you use it in your shader)
+                if (spatialHashShader.HasKernel("ClearGrid"))
+                {
+                    int clearKernel = spatialHashShader.FindKernel("ClearGrid");
+                    _bufferManager.BindBuffersToShader(spatialHashShader, clearKernel, "spatialhash");
+                    // The grid size is typically much larger than particle count
+                    int gridCells = Mathf.CeilToInt(_bufferManager.GridStartIndicesBuffer.count / (float)threadsPerGroup);
+                    spatialHashShader.Dispatch(clearKernel, gridCells, 1, 1);
+                }
+                // Main spatial hash kernel
                 int kernelIndex = spatialHashShader.FindKernel("CSMain");
                 _bufferManager.BindBuffersToShader(spatialHashShader, kernelIndex, "spatialhash");
                 spatialHashShader.Dispatch(kernelIndex, groupCount, 1, 1);
+                // Optional: Sort particles kernel (if you use it in your shader)
+                if (spatialHashShader.HasKernel("SortParticles"))
+                {
+                    int sortKernel = spatialHashShader.FindKernel("SortParticles");
+                    _bufferManager.BindBuffersToShader(spatialHashShader, sortKernel, "spatialhash");
+                    spatialHashShader.Dispatch(sortKernel, groupCount, 1, 1);
+                }
             }
 
             // Density and pressure phase
