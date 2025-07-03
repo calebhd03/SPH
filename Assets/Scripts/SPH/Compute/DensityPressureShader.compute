@@ -1,0 +1,125 @@
+#pragma kernel CalculateDensityPressure
+
+// Constants for SPH
+static const float PI = 3.14159265359;
+static const float MASS = 0.02;
+static const float REST_DENSITY = 1000.0;
+static const float GAS_CONSTANT = 2000.0;
+static const float EPSILON = 0.0001;
+
+// Particle data structure (matches CPU side)
+struct Particle {
+    float3 position;
+    float3 velocity;
+    float density;
+    float pressure;
+    uint id;
+};
+
+// Buffers
+RWStructuredBuffer<float3> positions;
+RWStructuredBuffer<float> densities;
+RWStructuredBuffer<float> pressures;
+RWStructuredBuffer<uint> gridStartIndices;
+RWStructuredBuffer<uint> gridEndIndices;
+RWStructuredBuffer<uint> sortedParticleIndices;
+
+// Parameters
+float smoothingRadius;
+float smoothingRadius2;
+float smoothingRadius6;
+float smoothingRadius9;
+float poly6Coefficient;
+
+// Simulation parameters
+uint numParticles;
+uint3 gridDimensions;
+float cellSize;
+
+// Poly6 kernel for density
+float CalculatePoly6Kernel(float r2)
+{
+    if (r2 > smoothingRadius2) return 0.0;
+    float term = smoothingRadius2 - r2;
+    return poly6Coefficient * term * term * term;
+}
+
+// Get grid cell index from position
+uint3 GetGridCell(float3 position)
+{
+    return uint3((position + 1000.0) / cellSize); // Adding offset to handle negative positions
+}
+
+// Get grid index from 3D cell coordinates
+uint GetGridIndex(uint3 cell)
+{
+    return cell.x + cell.y * gridDimensions.x + cell.z * gridDimensions.x * gridDimensions.y;
+}
+
+[numthreads(64,1,1)]
+void CalculateDensityPressure(uint3 id : SV_DispatchThreadID)
+{
+    uint particleIndex = id.x;
+    if (particleIndex >= numParticles) return;
+
+    float3 pos_i = positions[particleIndex];
+    float density = 0;
+    
+    // Get grid cell for current particle
+    uint3 cell = GetGridCell(pos_i);
+    
+    // Search neighboring cells
+    for (int x = -1; x <= 1; x++)
+    {
+        for (int y = -1; y <= 1; y++)
+        {
+            for (int z = -1; z <= 1; z++)
+            {
+                uint3 neighborCell = uint3(
+                    (cell.x + x + gridDimensions.x) % gridDimensions.x,
+                    (cell.y + y + gridDimensions.y) % gridDimensions.y,
+                    (cell.z + z + gridDimensions.z) % gridDimensions.z
+                );
+                
+                uint gridIndex = GetGridIndex(neighborCell);
+                uint startIndex = gridStartIndices[gridIndex];
+                uint endIndex = gridEndIndices[gridIndex];
+                
+                // Iterate through particles in this cell
+                for (uint j = startIndex; j < endIndex; j++)
+                {
+                    uint neighborIndex = sortedParticleIndices[j];
+                    if (neighborIndex == particleIndex) continue;
+                    
+                    float3 pos_j = positions[neighborIndex];
+                    float3 r = pos_i - pos_j;
+                    float r2 = dot(r, r);
+                    
+                    if (r2 < smoothingRadius2)
+                    {
+                        density += MASS * CalculatePoly6Kernel(r2);
+                    }
+                }
+            }
+        }
+    }
+    
+    // Add self density
+    density += MASS * CalculatePoly6Kernel(0);
+    
+    // Ensure minimum density for numerical stability
+    density = max(density, REST_DENSITY * 0.1);
+    
+    // Store density
+    densities[particleIndex] = density;
+    
+    // Calculate pressure using equation of state (ideal gas law)
+    float densityError = density - REST_DENSITY;
+    float pressure = GAS_CONSTANT * densityError;
+    
+    // Ensure non-negative pressure
+    pressure = max(0, pressure);
+    
+    // Store pressure
+    pressures[particleIndex] = pressure;
+}
