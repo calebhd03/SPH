@@ -273,8 +273,74 @@ public class SPHBufferManager : IDisposable
                 positionData[i * 3 + 2]
             );
         }
-        
+
         return positions;
+    }
+
+    /// <summary>
+    /// Read particle pressures back from GPU for rendering or debugging
+    /// </summary>
+    public Vector3 GetParticlePressure(int particleIndex)
+    {
+        if (PressureBuffer == null)
+            throw new InvalidOperationException("Position buffer is not initialized");
+
+        particleIndex = Mathf.Min(particleIndex, _maxParticles);
+
+        var pressureData = new float[_maxParticles * 3];
+        PressureBuffer.GetData(pressureData, 0, 0, _maxParticles * 3);
+
+        Vector3 pressure = new Vector3(
+                pressureData[particleIndex * 3],
+                pressureData[particleIndex * 3 + 1],
+                pressureData[particleIndex * 3 + 2]
+            );
+
+        return pressure;
+    }
+
+    /// <summary>
+    /// Read particle density back from GPU for rendering or debugging
+    /// </summary>
+    public Vector3 GetParticleDensity(int particleIndex)
+    {
+        if (DensityBuffer == null)
+            throw new InvalidOperationException("Position buffer is not initialized");
+
+        particleIndex = Mathf.Min(particleIndex, _maxParticles);
+
+        var densityData = new float[_maxParticles * 3];
+        DensityBuffer.GetData(densityData, 0, 0, _maxParticles);
+
+        Vector3 density = new Vector3(
+                densityData[particleIndex * 3],
+                densityData[particleIndex * 3 + 1],
+                densityData[particleIndex * 3 + 2]
+            );
+
+        return densityData[particleIndex] > 0 ? density : Vector3.zero; // Avoid NaN for zero density
+    }
+
+    /// <summary>
+    /// Read particle velocity back from GPU for rendering or debugging
+    /// </summary>
+    public Vector3 GetParticleVelocity(int particleIndex)
+    {
+        if (VelocityBuffer == null)
+            throw new InvalidOperationException("Position buffer is not initialized");
+
+        particleIndex = Mathf.Min(particleIndex, _maxParticles);
+
+        var velocityData = new float[_maxParticles * 3];
+        VelocityBuffer.GetData(velocityData, 0, 0, _maxParticles * 3);
+
+        Vector3 velocity = new Vector3(
+                velocityData[particleIndex * 3],
+                velocityData[particleIndex * 3 + 1],
+                velocityData[particleIndex * 3 + 2]
+            );
+
+        return velocity;
     }
 
     /// <summary>

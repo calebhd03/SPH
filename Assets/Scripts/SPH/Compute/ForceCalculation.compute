@@ -2,10 +2,6 @@
 
 // Constants
 static const float PI = 3.14159265359;
-static const float MASS = 0.02;
-static const float REST_DENSITY = 1000.0;
-static const float GAS_CONSTANT = 2000.0;
-static const float VISCOSITY = 0.01;
 static const float3 GRAVITY = float3(0, -9.81, 0);
 
 // Buffers
@@ -22,10 +18,14 @@ RWStructuredBuffer<uint> sortedParticleIndices;
 float smoothingRadius;
 float smoothingRadius2;
 float spikyGradCoefficient;
-float viscosityLaplacianCoefficient;
+float viscocityLaplacianCoefficient;
 uint numParticles;
 uint3 gridDimensions;
 float cellSize;
+float particleMass;
+float restDensity;
+float gasConstant;
+float viscocity;
 
 // Spiky kernel gradient
 float3 SpikyGrad(float3 r, float rLen)
@@ -35,11 +35,11 @@ float3 SpikyGrad(float3 r, float rLen)
     return coeff * r;
 }
 
-// Viscosity kernel laplacian
-float ViscosityLaplacian(float rLen)
+// viscocity kernel laplacian
+float viscocityLaplacian(float rLen)
 {
     if (rLen > smoothingRadius) return 0.0;
-    return viscosityLaplacianCoefficient * (smoothingRadius - rLen);
+    return viscocityLaplacianCoefficient * (smoothingRadius - rLen);
 }
 
 // Get grid cell index from position
@@ -66,7 +66,7 @@ void CalculateForces(uint3 id : SV_DispatchThreadID)
     float pres_i = pressures[i];
 
     float3 force_pressure = float3(0,0,0);
-    float3 force_viscosity = float3(0,0,0);
+    float3 force_viscocity = float3(0,0,0);
 
     uint3 cell = GetGridCell(pos_i);
 
@@ -99,10 +99,10 @@ void CalculateForces(uint3 id : SV_DispatchThreadID)
                         // Pressure force
                         float avgPressure = (pres_i + pres_j) / 2.0;
                         float3 grad = SpikyGrad(r, rLen);
-                        force_pressure += -MASS * avgPressure / dens_j * grad;
-                        // Viscosity force
-                        float lap = ViscosityLaplacian(rLen);
-                        force_viscosity += VISCOSITY * MASS * (vel_j - vel_i) / dens_j * lap;
+                        force_pressure += -particleMass * avgPressure / dens_j * grad;
+                        // viscocity force
+                        float lap = viscocityLaplacian(rLen);
+                        force_viscocity += viscocity * particleMass * (vel_j - vel_i) / dens_j * lap;
                     }
                 }
             }
@@ -111,6 +111,6 @@ void CalculateForces(uint3 id : SV_DispatchThreadID)
     // Gravity
     float3 force_gravity = GRAVITY * dens_i;
     // Total force
-    float3 totalForce = force_pressure + force_viscosity + force_gravity;
+    float3 totalForce = force_pressure + force_viscocity + force_gravity;
     forces[i] = totalForce;
 }

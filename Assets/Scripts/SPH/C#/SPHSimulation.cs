@@ -166,7 +166,11 @@ public class SPHSimulation : MonoBehaviour
 
                 forceShader.SetFloat("smoothingRadius", smoothingRadius);
                 forceShader.SetFloat("smoothingRadius2", smoothingRadius * smoothingRadius);
-                
+                forceShader.SetFloat("particleMass", particleMass);
+                forceShader.SetFloat("restDensity", restDensity);
+                forceShader.SetFloat("gasConstant", gasConstant);
+                forceShader.SetFloat("viscosity", viscosityCoefficient);
+
                 float spikyGradCoeff = -45.0f / (Mathf.PI * Mathf.Pow(smoothingRadius, 6)); // Spiky kernel gradient coefficient:  -45/(PI * h^6)
                 forceShader.SetFloat("spikyGradCoefficient", spikyGradCoeff);
                 // Viscosity kernel laplacian coefficient: 45/(PI * h^6)
