@@ -70,6 +70,12 @@ public class SPHBufferManager : IDisposable
             DebugColorBuffer = CreateBuffer("DebugColors", maxParticles, sizeof(float) * 4); // RGBA
             NeighborCountBuffer = CreateBuffer("NeighborCounts", maxParticles, sizeof(int));
 
+            // --- Add gridCellCounts buffer for spatial hashing debug/counting ---
+            var gridCellCountsBuffer = CreateBuffer("gridCellCounts", maxGridCells, sizeof(uint));
+            // Optionally clear to zero
+            uint[] zeroCounts = new uint[maxGridCells];
+            gridCellCountsBuffer.SetData(zeroCounts);
+
             Debug.Log($"SPH Buffers initialized successfully for {maxParticles} particles");
             LogMemoryUsage();
         }
