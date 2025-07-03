@@ -1,5 +1,7 @@
 #pragma kernel AssignParticlesToGrid
 #pragma kernel DebugColorByGridCell
+#pragma kernel FillSortedIndices
+#pragma kernel FillGridRanges
 
 // Constants
 static const uint HASH_TABLE_SIZE = 262144; // 2^18
@@ -10,6 +12,9 @@ StructuredBuffer<float3> positions;
 RWStructuredBuffer<uint> particleGridIndices;
 RWStructuredBuffer<uint> gridCellCounts;
 RWStructuredBuffer<float4> debugColors;
+RWStructuredBuffer<uint> sortedParticleIndices;
+RWStructuredBuffer<uint> gridStartIndices;
+RWStructuredBuffer<uint> gridEndIndices;
 
 // Parameters
 uint numParticles;
@@ -63,4 +68,39 @@ void DebugColorByGridCell(uint3 id : SV_DispatchThreadID)
     float g = ((hash * 57) % 255) / 255.0;
     float b = ((hash * 17) % 255) / 255.0;
     debugColors[i] = float4(r, g, b, 1.0);
+}
+
+// Fill sortedParticleIndices with indices 0..N-1 (for sorting)
+[numthreads(64,1,1)]
+void FillSortedIndices(uint3 id : SV_DispatchThreadID)
+{
+    uint i = id.x;
+    if (i >= numParticles) return;
+    sortedParticleIndices[i] = i;
+}
+
+// Fill gridStartIndices and gridEndIndices after sorting
+[numthreads(64,1,1)]
+void FillGridRanges(uint3 id : SV_DispatchThreadID)
+{
+    uint i = id.x;
+    if (i >= numParticles) return;
+    uint currCell = particleGridIndices[sortedParticleIndices[i]];
+    if (i == 0)
+    {
+        gridStartIndices[currCell] = 0;
+    }
+    else
+    {
+        uint prevCell = particleGridIndices[sortedParticleIndices[i-1]];
+        if (currCell != prevCell)
+        {
+            gridEndIndices[prevCell] = i;
+            gridStartIndices[currCell] = i;
+        }
+    }
+    if (i == numParticles-1)
+    {
+        gridEndIndices[currCell] = numParticles;
+    }
 }

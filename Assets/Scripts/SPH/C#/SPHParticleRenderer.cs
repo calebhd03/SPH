@@ -15,7 +15,8 @@ public class SPHParticleRenderer : MonoBehaviour
         None,
         Density,
         Pressure,
-        Velocity
+        Velocity,
+        Grid
     }
 
 
@@ -100,6 +101,9 @@ public class SPHParticleRenderer : MonoBehaviour
 
         switch (colorDisplayMode)
         {
+            case ColorDisplayMode.Grid:
+                color = simulation._bufferManager.GetParticleGridColor(particleIndex);
+                break;
 
             case ColorDisplayMode.Density:
                 Vector3 densityVec = simulation._bufferManager.GetParticleDensity(particleIndex);
@@ -114,6 +118,7 @@ public class SPHParticleRenderer : MonoBehaviour
                 float t = Mathf.InverseLerp(maxDensity, minDensity, density);
                 color = Color.Lerp(Color.black, Color.white, t);
                 break;
+
             case ColorDisplayMode.Pressure:
                 simulation._bufferManager.GetParticlePressure(particleIndex);
 
@@ -129,6 +134,7 @@ public class SPHParticleRenderer : MonoBehaviour
                 float pressureLerp = Mathf.InverseLerp(maxPressure, minPressure, pressure);
                 color = Color.Lerp(Color.blue, Color.green, pressureLerp);
                 break;
+
             case ColorDisplayMode.Velocity:
                 simulation._bufferManager.GetParticleVelocity(particleIndex);
 
@@ -144,6 +150,7 @@ public class SPHParticleRenderer : MonoBehaviour
                 float colorLerp = Mathf.InverseLerp(maxVelocity, minVelocity, velocity);
                 color = Color.Lerp(Color.red, Color.green, colorLerp);
                 break;
+
             default:
                 color = Color.white; // Default color if no mode is selected
                 break;

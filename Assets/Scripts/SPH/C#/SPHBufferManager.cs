@@ -206,6 +206,9 @@ public class SPHBufferManager : IDisposable
                         shader.SetBuffer(kernelIndex, "gridCellCounts", _managedBuffers["gridCellCounts"]);
                     if (DebugColorBuffer != null)
                         shader.SetBuffer(kernelIndex, "debugColors", DebugColorBuffer);
+                    shader.SetBuffer(kernelIndex, "sortedParticleIndices", SortedParticleIndicesBuffer);
+                    shader.SetBuffer(kernelIndex, "gridStartIndices", GridStartIndicesBuffer);
+                    shader.SetBuffer(kernelIndex, "gridEndIndices", GridEndIndicesBuffer);
                     break;
 
                 case "densitypressure":
@@ -341,6 +344,51 @@ public class SPHBufferManager : IDisposable
             );
 
         return velocity;
+    }
+
+    /// <summary>
+    /// Read particle velocity back from GPU for rendering or debugging
+    /// </summary>
+    public Color GetParticleGridColor(int particleIndex)
+    {
+        if (DebugColorBuffer == null)
+            throw new InvalidOperationException("Position buffer is not initialized");
+
+        particleIndex = Mathf.Min(particleIndex, _maxParticles);
+
+        var colorData = new float[_maxParticles * 3];
+        DebugColorBuffer.GetData(colorData, 0, 0, _maxParticles * 3);
+
+        Color color = new Color(
+                colorData[particleIndex * 3],
+                colorData[particleIndex * 3 + 1],
+                colorData[particleIndex * 3 + 2],
+                colorData[particleIndex * 3 + 3] // Assuming alpha is also stored
+            );
+
+        return color;
+    }
+
+    public string BufferToString(ComputeBuffer buffer)
+    {
+        if (buffer == null)
+            return "Buffer is null";
+
+        string result = $"Buffer: Count: {buffer.count}, Stride: {buffer.stride}";
+
+        // Try to get data if possible
+        try
+        {
+            var data = new float[buffer.count * (buffer.stride / sizeof(float))];
+            buffer.GetData(data);
+            result += $", Data: [{string.Join(", ", data)}]";
+        }
+        catch (Exception e)
+        {
+            result += $", Error getting data: {e.Message}";
+        }
+
+        return result;
     }
 
     /// <summary>

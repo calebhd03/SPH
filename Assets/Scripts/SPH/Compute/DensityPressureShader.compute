@@ -78,7 +78,7 @@ void CalculateDensityPressure(uint3 id : SV_DispatchThreadID)
                 uint endIndex = gridEndIndices[gridIndex];
                 
                 // Iterate through particles in this cell
-                for (uint j = startIndex; j < endIndex; j++)
+                for (uint j = 0; j < numParticles; j++)
                 {
                     uint neighborIndex = sortedParticleIndices[j];
                     if (neighborIndex == particleIndex) continue;

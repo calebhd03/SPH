@@ -154,7 +154,7 @@ MonoBehaviour:
   particleMesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
   particleScale: 0.1
   particleToDisplay: 0
-  colorDisplayMode: 3
+  colorDisplayMode: 4
 --- !u!114 &217449656
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -167,14 +167,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 29c959a855873d14aa03ec0fd769a1d8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxParticles: 100
-  particleMass: 0.02
-  restDensity: 100
-  gasConstant: 2000
-  viscosityCoefficient: 0.03
+  maxParticles: 1000
+  particleMass: 1
+  restDensity: 10
+  gasConstant: 10
+  viscosityCoefficient: 0.12
   timeStep: 0.01
-  boundarySize: {x: 10, y: 10, z: 10}
-  smoothingRadius: 1
+  boundarySize: {x: 5, y: 5, z: 5}
+  smoothingRadius: 0.5
   spatialHashShader: {fileID: 7200000, guid: 4bb90630dddc54a4da1a1bb1a0171e28, type: 3}
   densityPressureShader: {fileID: 7200000, guid: 7632c46705023894f91936e04f693ae1, type: 3}
   forceShader: {fileID: 7200000, guid: 5a18b4dc7bd73f34a931094f91d384aa, type: 3}
@@ -283,7 +283,7 @@ Transform:
   m_GameObject: {fileID: 330585543}
   serializedVersion: 2
   m_LocalRotation: {x: 0.12882651, y: -0, z: -0, w: 0.9916672}
-  m_LocalPosition: {x: 0, y: 1.89, z: -3.11}
+  m_LocalPosition: {x: 2.5, y: 1.89, z: -3.11}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

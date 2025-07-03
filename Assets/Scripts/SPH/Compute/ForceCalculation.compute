@@ -84,7 +84,7 @@ void CalculateForces(uint3 id : SV_DispatchThreadID)
                 uint gridIndex = GetGridIndex(neighborCell);
                 uint startIndex = gridStartIndices[gridIndex];
                 uint endIndex = gridEndIndices[gridIndex];
-                for (uint j = startIndex; j < endIndex; j++)
+                for (uint j = 0; j < numParticles; j++)
                 {
                     uint neighborIdx = sortedParticleIndices[j];
                     if (neighborIdx == i) continue;
