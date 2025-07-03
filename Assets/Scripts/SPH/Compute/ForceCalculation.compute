@@ -1,0 +1,116 @@
+#pragma kernel CalculateForces
+
+// Constants
+static const float PI = 3.14159265359;
+static const float MASS = 0.02;
+static const float REST_DENSITY = 1000.0;
+static const float GAS_CONSTANT = 2000.0;
+static const float VISCOSITY = 0.01;
+static const float3 GRAVITY = float3(0, -9.81, 0);
+
+// Buffers
+RWStructuredBuffer<float3> positions;
+RWStructuredBuffer<float3> velocities;
+RWStructuredBuffer<float> densities;
+RWStructuredBuffer<float> pressures;
+RWStructuredBuffer<float3> forces;
+RWStructuredBuffer<uint> gridStartIndices;
+RWStructuredBuffer<uint> gridEndIndices;
+RWStructuredBuffer<uint> sortedParticleIndices;
+
+// Parameters
+float smoothingRadius;
+float smoothingRadius2;
+float spikyGradCoefficient;
+float viscosityLaplacianCoefficient;
+uint numParticles;
+uint3 gridDimensions;
+float cellSize;
+
+// Spiky kernel gradient
+float3 SpikyGrad(float3 r, float rLen)
+{
+    if (rLen == 0 || rLen > smoothingRadius) return float3(0,0,0);
+    float coeff = spikyGradCoefficient * pow(smoothingRadius - rLen, 2) / rLen;
+    return coeff * r;
+}
+
+// Viscosity kernel laplacian
+float ViscosityLaplacian(float rLen)
+{
+    if (rLen > smoothingRadius) return 0.0;
+    return viscosityLaplacianCoefficient * (smoothingRadius - rLen);
+}
+
+// Get grid cell index from position
+uint3 GetGridCell(float3 position)
+{
+    return uint3((position + 1000.0) / cellSize);
+}
+
+// Get grid index from 3D cell coordinates
+uint GetGridIndex(uint3 cell)
+{
+    return cell.x + cell.y * gridDimensions.x + cell.z * gridDimensions.x * gridDimensions.y;
+}
+
+[numthreads(64,1,1)]
+void CalculateForces(uint3 id : SV_DispatchThreadID)
+{
+    uint i = id.x;
+    if (i >= numParticles) return;
+
+    float3 pos_i = positions[i];
+    float3 vel_i = velocities[i];
+    float dens_i = densities[i];
+    float pres_i = pressures[i];
+
+    float3 force_pressure = float3(0,0,0);
+    float3 force_viscosity = float3(0,0,0);
+
+    uint3 cell = GetGridCell(pos_i);
+
+    for (int x = -1; x <= 1; x++)
+    {
+        for (int y = -1; y <= 1; y++)
+        {
+            for (int z = -1; z <= 1; z++)
+            {
+                uint3 neighborCell = uint3(
+                    (cell.x + x + gridDimensions.x) % gridDimensions.x,
+                    (cell.y + y + gridDimensions.y) % gridDimensions.y,
+                    (cell.z + z + gridDimensions.z) % gridDimensions.z
+                );
+                uint gridIndex = GetGridIndex(neighborCell);
+                uint startIndex = gridStartIndices[gridIndex];
+                uint endIndex = gridEndIndices[gridIndex];
+                for (uint j = startIndex; j < endIndex; j++)
+                {
+                    uint neighborIdx = sortedParticleIndices[j];
+                    if (neighborIdx == i) continue;
+                    float3 pos_j = positions[neighborIdx];
+                    float3 vel_j = velocities[neighborIdx];
+                    float dens_j = densities[neighborIdx];
+                    float pres_j = pressures[neighborIdx];
+                    float3 r = pos_i - pos_j;
+                    float rLen = length(r);
+                    if (rLen < smoothingRadius && rLen > 0.00001)
+                    {
+                        // Pressure force
+                        float avgPressure = (pres_i + pres_j) / 2.0;
+                        float3 grad = SpikyGrad(r, rLen);
+                        force_pressure += -MASS * avgPressure / dens_j * grad;
+                        // Viscosity force
+                        float lap = ViscosityLaplacian(rLen);
+                        force_viscosity += VISCOSITY * MASS * (vel_j - vel_i) / dens_j * lap;
+                    }
+                }
+            }
+        }
+    }
+    // Gravity
+    float3 force_gravity = GRAVITY * dens_i;
+    // Total force
+    float3 totalForce = force_pressure + force_viscosity + force_gravity;
+    forces[i] = totalForce;
+}
